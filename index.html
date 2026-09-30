@@ -1,1 +1,800 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
+<title>Shadow Quest</title>
 
+<style>
+*{box-sizing:border-box}
+body{
+  margin:0;background:#070b14;color:#fff;
+  font-family:Arial,sans-serif;overflow:hidden;
+  touch-action:none
+}
+canvas{
+  display:block;margin:auto;
+  background:#101a30;
+  max-width:100vw;max-height:100vh
+}
+#ui{
+  position:fixed;top:10px;left:10px;right:10px;
+  display:flex;justify-content:space-between;
+  pointer-events:none;font-size:18px;
+  text-shadow:0 2px 4px #000
+}
+#menu,#gameover{
+  position:fixed;inset:0;
+  display:flex;align-items:center;justify-content:center;
+  flex-direction:column;
+  background:rgba(3,6,15,.88);
+  z-index:5;text-align:center
+}
+#gameover{display:none}
+h1{font-size:42px;margin:0 0 10px}
+p{font-size:18px}
+button{
+  border:0;border-radius:14px;
+  padding:14px 25px;margin:6px;
+  font-size:18px;font-weight:bold;
+  background:#5865f2;color:white
+}
+#controls{
+  position:fixed;bottom:18px;left:0;right:0;
+  display:flex;justify-content:space-between;
+  padding:0 18px;z-index:4
+}
+.controlGroup{display:flex;gap:12px}
+.ctrl{
+  width:65px;height:65px;border-radius:50%;
+  background:rgba(255,255,255,.18);
+  border:2px solid rgba(255,255,255,.35);
+  color:white;font-size:25px;
+  display:flex;align-items:center;justify-content:center;
+  user-select:none
+}
+#fire{background:rgba(255,60,60,.45)}
+@media(min-width:800px){
+ #controls{opacity:.35}
+}
+</style>
+</head>
+
+<body>
+
+<div id="ui">
+  <div>❤️ <span id="hp">100</span></div>
+  <div>🪙 <span id="coins">0</span></div>
+  <div>⭐ <span id="score">0</span></div>
+  <div>🌍 المرحلة <span id="level">1</span></div>
+</div>
+
+<canvas id="game" width="960" height="540"></canvas>
+
+<div id="menu">
+  <h1>⚔️ Shadow Quest</h1>
+  <p>قاتل الأعداء واجمع العملات واعبر المراحل</p>
+  <p>🏆 أعلى نتيجة: <span id="bestMenu">0</span></p>
+  <button onclick="startGame()">ابدأ اللعبة</button>
+</div>
+
+<div id="gameover">
+  <h1>💀 انتهت اللعبة</h1>
+  <p>نتيجتك: <span id="finalScore">0</span></p>
+  <p>أعلى نتيجة: <span id="bestFinal">0</span></p>
+  <button onclick="startGame()">إعادة اللعب</button>
+</div>
+
+<div id="controls">
+  <div class="controlGroup">
+    <div class="ctrl" id="left">◀</div>
+    <div class="ctrl" id="right">▶</div>
+    <div class="ctrl" id="jump">⬆</div>
+  </div>
+  <div class="controlGroup">
+    <div class="ctrl" id="fire">⚔</div>
+  </div>
+</div>
+
+<script>
+const canvas=document.getElementById("game");
+const ctx=canvas.getContext("2d");
+
+const W=canvas.width,H=canvas.height;
+let running=false;
+let score=0,coins=0,level=1;
+let cameraX=0;
+let lastTime=0;
+let spawnTimer=0;
+let levelMessage=0;
+
+let best=Number(localStorage.getItem("shadowBest")||0);
+document.getElementById("bestMenu").textContent=best;
+
+const keys={left:false,right:false,fire:false};
+
+const player={
+ x:120,y:300,w:38,h:52,
+ vx:0,vy:0,
+ speed:280,
+ jump:600,
+ grounded:false,
+ hp:100,
+ maxHp:100,
+ facing:1,
+ cooldown:0,
+ invincible:0
+};
+
+let platforms=[];
+let enemies=[];
+let bullets=[];
+let enemyBullets=[];
+let items=[];
+let particles=[];
+
+/* ---------- التحكم ---------- */
+
+function bindButton(id,key){
+ const el=document.getElementById(id);
+
+ el.addEventListener("touchstart",e=>{
+   e.preventDefault();
+   keys[key]=true;
+   if(key==="jump") jump();
+ },{passive:false});
+
+ el.addEventListener("touchend",e=>{
+   e.preventDefault();
+   keys[key]=false;
+ },{passive:false});
+
+ el.addEventListener("mousedown",()=>{
+   keys[key]=true;
+   if(key==="jump") jump();
+ });
+
+ el.addEventListener("mouseup",()=>keys[key]=false);
+}
+
+bindButton("left","left");
+bindButton("right","right");
+bindButton("fire","fire");
+bindButton("jump","jump");
+
+document.addEventListener("keydown",e=>{
+ if(e.key==="ArrowLeft"||e.key==="a")keys.left=true;
+ if(e.key==="ArrowRight"||e.key==="d")keys.right=true;
+ if(e.key===" "||e.key==="ArrowUp"||e.key==="w"){
+   if(!e.repeat)jump();
+ }
+ if(e.key==="j")keys.fire=true;
+});
+
+document.addEventListener("keyup",e=>{
+ if(e.key==="ArrowLeft"||e.key==="a")keys.left=false;
+ if(e.key==="ArrowRight"||e.key==="d")keys.right=false;
+ if(e.key==="j")keys.fire=false;
+});
+
+/* ---------- العالم ---------- */
+
+function buildLevel(){
+ platforms=[];
+
+ // أرضية
+ platforms.push({x:0,y:490,w:4000,h:50});
+
+ // منصات
+ const data=[
+  [350,400,180],[620,330,160],[900,420,220],
+  [1200,350,180],[1450,270,200],
+  [1750,400,220],[2050,320,180],
+  [2350,420,250],[2700,340,180],
+  [3000,260,220],[3350,400,250],
+  [3700,320,220]
+ ];
+
+ data.forEach(p=>{
+   platforms.push({x:p[0],y:p[1],w:p[2],h:22});
+ });
+
+ enemies=[];
+ bullets=[];
+ enemyBullets=[];
+ items=[];
+
+ // أعداء موزعين على الخريطة
+ for(let i=0;i<18;i++){
+   const x=450+i*190;
+   enemies.push(createEnemy(x,400));
+ }
+
+ // عملات
+ for(let i=0;i<30;i++){
+   const x=300+i*120;
+   const y=250+Math.sin(i)*100;
+   items.push({
+     type:"coin",
+     x,y,w:20,h:20,
+     taken:false
+   });
+ }
+
+ // زعيم آخر الخريطة
+ enemies.push({
+   x:3820,y:250,w:80,h:100,
+   vx:0,vy:0,
+   hp:300,maxHp:300,
+   boss:true,
+   attack:2
+ });
+}
+
+function createEnemy(x,y){
+ return {
+   x,y:y-45,w:42,h:45,
+   vx:0,vy:0,
+   hp:60,maxHp:60,
+   dir:-1,
+   attack:1+Math.random()*2,
+   boss:false
+ };
+}
+
+/* ---------- بدء اللعبة ---------- */
+
+function startGame(){
+ score=0;
+ coins=0;
+ level=1;
+ cameraX=0;
+
+ player.x=120;
+ player.y=300;
+ player.vx=0;
+ player.vy=0;
+ player.hp=100;
+ player.cooldown=0;
+ player.invincible=0;
+
+ buildLevel();
+
+ running=true;
+
+ document.getElementById("menu").style.display="none";
+ document.getElementById("gameover").style.display="none";
+
+ lastTime=performance.now();
+ requestAnimationFrame(loop);
+}
+
+/* ---------- الحركة ---------- */
+
+function jump(){
+ if(running && player.grounded){
+   player.vy=-player.jump;
+   player.grounded=false;
+   particlesBurst(player.x,player.y+player.h,8,"#fff");
+ }
+}
+
+function updatePlayer(dt){
+
+ if(keys.left){
+   player.vx=-player.speed;
+   player.facing=-1;
+ }
+
+ if(keys.right){
+   player.vx=player.speed;
+   player.facing=1;
+ }
+
+ if(!keys.left&&!keys.right){
+   player.vx*=0.82;
+ }
+
+ player.vy+=1500*dt;
+
+ const oldY=player.y;
+
+ player.x+=player.vx*dt;
+ player.y+=player.vy*dt;
+
+ player.grounded=false;
+
+ for(const p of platforms){
+
+   if(
+     player.x+player.w>p.x &&
+     player.x<p.x+p.w &&
+     oldY+player.h<=p.y &&
+     player.y+player.h>=p.y &&
+     player.vy>=0
+   ){
+     player.y=p.y-player.h;
+     player.vy=0;
+     player.grounded=true;
+   }
+ }
+
+ if(player.x<0)player.x=0;
+
+ if(player.y>700){
+   damagePlayer(999);
+ }
+
+ player.cooldown-=dt;
+ player.invincible-=dt;
+
+ if(keys.fire && player.cooldown<=0){
+   shoot();
+   player.cooldown=.22;
+ }
+
+ // الكاميرا
+ cameraX=player.x-300;
+
+ if(cameraX<0)cameraX=0;
+ if(cameraX>3200)cameraX=3200;
+}
+
+/* ---------- إطلاق النار ---------- */
+
+function shoot(){
+
+ bullets.push({
+   x:player.x+player.w/2,
+   y:player.y+20,
+   vx:player.facing*850,
+   r:6,
+   damage:25
+ });
+
+ particlesBurst(
+   player.x+(player.facing>0?player.w:0),
+   player.y+20,
+   5,
+   "#ffd54f"
+ );
+}
+
+/* ---------- الأعداء ---------- */
+
+function updateEnemies(dt){
+
+ for(const e of enemies){
+
+   if(e.hp<=0)continue;
+
+   const distance=player.x-e.x;
+
+   if(e.boss){
+
+     e.vy+=1200*dt;
+     e.y+=e.vy*dt;
+
+     if(e.y+e.h>490){
+       e.y=490-e.h;
+       e.vy=0;
+     }
+
+     if(Math.abs(distance)<700){
+
+       e.attack-=dt;
+
+       if(e.attack<=0){
+         enemyShoot(e);
+         e.attack=.9;
+       }
+
+       if(distance>0)e.x+=40*dt;
+       else e.x-=40*dt;
+     }
+
+   }else{
+
+     if(Math.abs(distance)<500){
+
+       e.dir=distance>0?1:-1;
+       e.x+=e.dir*70*dt;
+
+       e.attack-=dt;
+
+       if(e.attack<=0 && Math.abs(distance)<350){
+         enemyShoot(e);
+         e.attack=2;
+       }
+     }
+   }
+
+   // اصطدام اللاعب بالعدو
+   if(
+     player.x<e.x+e.w &&
+     player.x+player.w>e.x &&
+     player.y<e.y+e.h &&
+     player.y+player.h>e.y
+   ){
+     damagePlayer(e.boss?20:10);
+   }
+ }
+}
+
+function enemyShoot(e){
+
+ const dx=player.x-e.x;
+ const dy=player.y-e.y;
+ const len=Math.hypot(dx,dy)||1;
+
+ enemyBullets.push({
+   x:e.x+e.w/2,
+   y:e.y+e.h/2,
+   vx:dx/len*350,
+   vy:dy/len*350,
+   r:e.boss?9:6,
+   damage:e.boss?15:8
+ });
+}
+
+/* ---------- الرصاص ---------- */
+
+function updateBullets(dt){
+
+ for(let i=bullets.length-1;i>=0;i--){
+
+   const b=bullets[i];
+
+   b.x+=b.vx*dt;
+
+   for(const e of enemies){
+
+     if(e.hp<=0)continue;
+
+     if(
+       b.x>e.x &&
+       b.x<e.x+e.w &&
+       b.y>e.y &&
+       b.y<e.y+e.h
+     ){
+
+       e.hp-=b.damage;
+
+       particlesBurst(b.x,b.y,8,"#ffeb3b");
+
+       bullets.splice(i,1);
+
+       if(e.hp<=0){
+         score+=e.boss?1000:100;
+         particlesBurst(e.x+e.w/2,e.y+e.h/2,25,"#ff5252");
+
+         if(e.boss){
+           level++;
+           levelMessage=3;
+         }
+       }
+
+       break;
+     }
+   }
+
+   if(b.x<cameraX-100||b.x>cameraX+W+100){
+     bullets.splice(i,1);
+   }
+ }
+
+ for(let i=enemyBullets.length-1;i>=0;i--){
+
+   const b=enemyBullets[i];
+
+   b.x+=b.vx*dt;
+   b.y+=b.vy*dt;
+
+   if(
+     b.x>player.x &&
+     b.x<player.x+player.w &&
+     b.y>player.y &&
+     b.y<player.y+player.h
+   ){
+     damagePlayer(b.damage);
+     enemyBullets.splice(i,1);
+     continue;
+   }
+
+   if(
+     b.x<cameraX-100||
+     b.x>cameraX+W+100||
+     b.y<0||b.y>H
+   ){
+     enemyBullets.splice(i,1);
+   }
+ }
+}
+
+/* ---------- الضرر ---------- */
+
+function damagePlayer(amount){
+
+ if(player.invincible>0)return;
+
+ player.hp-=amount;
+ player.invincible=.7;
+
+ particlesBurst(player.x+20,player.y+20,12,"#ff1744");
+
+ if(player.hp<=0){
+   player.hp=0;
+   endGame();
+ }
+}
+
+/* ---------- العملات ---------- */
+
+function updateItems(){
+
+ for(const item of items){
+
+   if(item.taken)continue;
+
+   const dx=player.x-item.x;
+   const dy=player.y-item.y;
+
+   if(Math.abs(dx)<35&&Math.abs(dy)<45){
+
+     item.taken=true;
+     coins++;
+     score+=25;
+
+     particlesBurst(item.x,item.y,10,"#ffd740");
+   }
+ }
+}
+
+/* ---------- المؤثرات ---------- */
+
+function particlesBurst(x,y,count,color){
+
+ for(let i=0;i<count;i++){
+
+   particles.push({
+     x,y,
+     vx:(Math.random()-.5)*300,
+     vy:(Math.random()-.5)*300,
+     life:.5+Math.random()*.5,
+     color
+   });
+ }
+}
+
+function updateParticles(dt){
+
+ for(let i=particles.length-1;i>=0;i--){
+
+   const p=particles[i];
+
+   p.x+=p.vx*dt;
+   p.y+=p.vy*dt;
+   p.vy+=500*dt;
+   p.life-=dt;
+
+   if(p.life<=0)particles.splice(i,1);
+ }
+}
+
+/* ---------- الرسم ---------- */
+
+function draw(){
+
+ ctx.clearRect(0,0,W,H);
+
+ drawBackground();
+
+ ctx.save();
+ ctx.translate(-cameraX,0);
+
+ drawPlatforms();
+ drawItems();
+ drawEnemies();
+ drawBullets();
+ drawPlayer();
+ drawParticles();
+
+ ctx.restore();
+
+ if(levelMessage>0){
+
+   ctx.fillStyle="white";
+   ctx.font="bold 42px Arial";
+   ctx.textAlign="center";
+   ctx.fillText(
+     "🔥 الزعيم هُزم!",
+     W/2,100
+   );
+ }
+}
+
+function drawBackground(){
+
+ const gradient=ctx.createLinearGradient(0,0,0,H);
+ gradient.addColorStop(0,"#081126");
+ gradient.addColorStop(1,"#182d3b");
+
+ ctx.fillStyle=gradient;
+ ctx.fillRect(0,0,W,H);
+
+ // نجوم
+ ctx.fillStyle="rgba(255,255,255,.5)";
+
+ for(let i=0;i<70;i++){
+   const x=(i*137-cameraX*.15)%4000;
+   const y=(i*73)%300;
+   ctx.fillRect(x,y,2,2);
+ }
+}
+
+function drawPlatforms(){
+
+ for(const p of platforms){
+
+   ctx.fillStyle="#263238";
+   ctx.fillRect(p.x,p.y,p.w,p.h);
+
+   ctx.fillStyle="#43a047";
+   ctx.fillRect(p.x,p.y,p.w,6);
+ }
+}
+
+function drawPlayer(){
+
+ if(player.invincible>0 && Math.floor(player.invincible*15)%2===0)return;
+
+ ctx.fillStyle="#00e676";
+ ctx.fillRect(player.x,player.y,player.w,player.h);
+
+ ctx.fillStyle="#263238";
+ ctx.fillRect(
+   player.x+(player.facing>0?25:7),
+   player.y+12,
+   7,7
+ );
+
+ // السلاح
+ ctx.fillStyle="#ffd54f";
+ ctx.fillRect(
+   player.x+(player.facing>0?player.w: -18),
+   player.y+25,
+   20,6
+ );
+}
+
+function drawEnemies(){
+
+ for(const e of enemies){
+
+   if(e.hp<=0)continue;
+
+   ctx.fillStyle=e.boss?"#9c27b0":"#f44336";
+   ctx.fillRect(e.x,e.y,e.w,e.h);
+
+   // العيون
+   ctx.fillStyle="#fff";
+   ctx.fillRect(e.x+8,e.y+12,8,8);
+   ctx.fillRect(e.x+e.w-16,e.y+12,8,8);
+
+   // شريط الصحة
+   ctx.fillStyle="#222";
+   ctx.fillRect(e.x,e.y-10,e.w,5);
+
+   ctx.fillStyle="#00e676";
+   ctx.fillRect(
+     e.x,
+     e.y-10,
+     e.w*(e.hp/e.maxHp),
+     5
+   );
+
+   if(e.boss){
+     ctx.fillStyle="#fff";
+     ctx.font="bold 16px Arial";
+     ctx.fillText("BOSS",e.x+8,e.y-18);
+   }
+ }
+}
+
+function drawBullets(){
+
+ for(const b of bullets){
+
+   ctx.fillStyle="#ffd740";
+   ctx.beginPath();
+   ctx.arc(b.x,b.y,b.r,0,Math.PI*2);
+   ctx.fill();
+ }
+
+ for(const b of enemyBullets){
+
+   ctx.fillStyle="#ff1744";
+   ctx.beginPath();
+   ctx.arc(b.x,b.y,b.r,0,Math.PI*2);
+   ctx.fill();
+ }
+}
+
+function drawItems(){
+
+ for(const item of items){
+
+   if(item.taken)continue;
+
+   ctx.fillStyle="#ffd740";
+   ctx.beginPath();
+   ctx.arc(item.x,item.y,10,0,Math.PI*2);
+   ctx.fill();
+
+   ctx.strokeStyle="#fff59d";
+   ctx.stroke();
+ }
+}
+
+function drawParticles(){
+
+ for(const p of particles){
+
+   ctx.globalAlpha=Math.max(0,p.life);
+   ctx.fillStyle=p.color;
+   ctx.fillRect(p.x,p.y,5,5);
+ }
+
+ ctx.globalAlpha=1;
+}
+
+/* ---------- اللعبة ---------- */
+
+function update(dt){
+
+ if(!running)return;
+
+ updatePlayer(dt);
+ updateEnemies(dt);
+ updateBullets(dt);
+ updateItems();
+ updateParticles(dt);
+
+ levelMessage-=dt;
+
+ document.getElementById("hp").textContent=Math.ceil(player.hp);
+ document.getElementById("coins").textContent=coins;
+ document.getElementById("score").textContent=score;
+ document.getElementById("level").textContent=level;
+}
+
+function loop(time){
+
+ if(!running)return;
+
+ const dt=Math.min((time-lastTime)/1000,.033);
+ lastTime=time;
+
+ update(dt);
+ draw();
+
+ requestAnimationFrame(loop);
+}
+
+function endGame(){
+
+ running=false;
+
+ if(score>best){
+   best=score;
+   localStorage.setItem("shadowBest",best);
+ }
+
+ document.getElementById("finalScore").textContent=score;
+ document.getElementById("bestFinal").textContent=best;
+ document.getElementById("gameover").style.display="flex";
+}
+</script>
+
+</body>
+  </html>
