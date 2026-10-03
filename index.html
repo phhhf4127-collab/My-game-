@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Qcz.a</title>
+
+<style>
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-family: Arial, Tahoma, sans-serif;
+  color: white;
+  overflow: hidden;
+  background: #07070d;
+}
+
+body::before,
+body::after {
+  content: "";
+  position: fixed;
+  width: 420px;
+  height: 420px;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: .55;
+  z-index: -2;
+  animation: float 7s ease-in-out infinite alternate;
+}
+
+body::before {
+  background: #ff2d8d;
+  top: -130px;
+  right: -100px;
+}
+
+body::after {
+  background: #6c35ff;
+  bottom: -160px;
+  left: -100px;
+  animation-delay: -3s;
+}
+
+.bg {
+  position: fixed;
+  inset: 0;
+  z-index: -3;
+  background:
+    radial-gradient(circle at 50% 30%, rgba(0,220,255,.16), transparent 28%),
+    linear-gradient(135deg,#090912,#11101f 50%,#080811);
+}
+
+.card {
+  width: min(92%,420px);
+  padding: 42px 25px 30px;
+  text-align: center;
+  border: 1px solid rgba(255,255,255,.18);
+  border-radius: 30px;
+  background: rgba(255,255,255,.08);
+  backdrop-filter: blur(22px);
+  -webkit-backdrop-filter: blur(22px);
+  box-shadow: 0 30px 90px rgba(0,0,0,.55);
+  animation: enter .9s cubic-bezier(.2,.8,.2,1);
+}
+
+.avatar {
+  width: 125px;
+  height: 125px;
+  border-radius: 50%;
+  margin: 0 auto 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 42px;
+  font-weight: 900;
+  background: linear-gradient(135deg,#ff2d8d,#7c3aed,#00d9ff);
+  box-shadow:
+    0 0 0 5px rgba(255,255,255,.08),
+    0 0 45px rgba(255,45,141,.45);
+  animation: pulse 2.8s ease-in-out infinite;
+}
+
+h1 {
+  font-size: 42px;
+  margin-bottom: 10px;
+  letter-spacing: 1px;
+}
+
+p {
+  font-size: 18px;
+  color: #ddd;
+  margin-bottom: 28px;
+}
+
+.button {
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 17px;
+  border-radius: 17px;
+  text-decoration: none;
+  color: #fff;
+  font-size: 18px;
+  font-weight: bold;
+  overflow: hidden;
+  background: linear-gradient(100deg,#111,#242424,#111);
+  border: 1px solid rgba(255,255,255,.22);
+  box-shadow: 0 12px 35px rgba(0,0,0,.35);
+  transition
