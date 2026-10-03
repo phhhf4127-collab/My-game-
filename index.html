@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Qcz.a</title>
+
+<style>
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+html, body {
+    width: 100%;
+    min-height: 100%;
+}
+
+body {
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 25px;
+
+    font-family: Arial, Tahoma, sans-serif;
+    color: white;
+
+    background:
+        radial-gradient(
+            circle at 85% 15%,
+            rgba(255, 0, 128, 0.55),
+            transparent 35%
+        ),
+        radial-gradient(
+            circle at 15% 85%,
+            rgba(80, 40, 255, 0.55),
+            transparent 35%
+        ),
+        linear-gradient(
+            135deg,
+            #050509,
+            #160817,
+            #09051c
+        );
+
+    overflow: hidden;
+}
+
+/* إضاءة متحركة */
+body::before {
+    content: "";
+    position: fixed;
+
+    width: 350px;
+    height: 350px;
+
+    top: -100px;
+    right: -100px;
+
+    border-radius: 50%;
+
+    background: #ff168b;
+
+    filter: blur(100px);
+
+    opacity: 0.35;
+
+    animation: movePink 6s ease-in-out infinite alternate;
+
+    z-index: 0;
+}
+
+body::after {
+    content: "";
+    position: fixed;
+
+    width: 350px;
+    height: 350px;
+
+    bottom: -100px;
+    left: -100px;
+
+    border-radius: 50%;
+
+    background: #5525ff;
+
+    filter: blur(100px);
+
+    opacity: 0.35;
+
+    animation: movePurple 7s ease-in-out infinite alternate;
+
+    z-index: 0;
+}
+
+
+/* البطاقة */
+.card {
+    position: relative;
+
+    z-index: 10;
+
+    width: 100%;
+    max-width: 400px;
+
+    padding: 45px 25px 35px;
+
+    text-align: center;
+
+    border-radius: 30px;
+
+    background: rgba(255,255,255,0.10);
+
+    border: 1px solid rgba(255,255,255,0.20);
+
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+
+    box-shadow:
+        0 30px 80px rgba(0,0,0,0.55),
+        inset 0 1px 0 rgba(255,255,255,0.15);
+
+    animation: appear 1s ease;
+}
+
+
+/* الدائرة */
+.avatar {
+    position: relative;
+
+    width: 125px;
+    height: 125px;
+
+    margin: 0 auto 22px;
+
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+    border-radius: 50%;
+
+    font-size: 45px;
+    font-weight: bold;
+
+    background:
+        linear-gradient(
+            135deg,
+            #ff168b,
+            #7c2cff,
+            #00d9ff
+        );
+
+    box-shadow:
+        0 0 25px rgba(255,20,140,0.5),
+        0 0 60px rgba(100,50,255,0.4);
+
+    animation: pulse 3s ease-in-out infinite;
+}
+
+
+/* حلقة حول الصورة */
+.avatar::before {
+    content: "";
+
+    position: absolute;
+
+    inset: -6px;
+
+    border-radius: 50%;
+
+    border: 2px solid rgba(255,255,255,0.35);
+
+    animation: rotate 5s linear infinite;
+}
+
+
+/* الاسم */
+h1 {
+    font-size: 42px;
+
+    margin-bottom: 10px;
+
+    letter-spacing: 1px;
+
+    text-shadow:
+        0 0 15px rgba(255,255,255,0.25);
+}
+
+
+/* الوصف */
+p {
+    font-size: 18px;
+
+    color: #eeeeee;
+
+    margin-bottom: 28px;
+}
+
+
+/* الزر */
+.button {
+    position: relative;
+
+    z-index: 5;
+
+    display: flex;
+
+    justify-content: center;
+    align-items: center;
+
+    gap: 12px;
+
+    width: 100%;
+
+    padding: 17px;
+
+    border-radius: 17px;
+
+    text-decoration: none;
+
+    color: white;
+
+    font-size: 18px;
+
+    font-weight: bold;
+
+    background:
+        linear-gradient(
+            100deg,
+            #111111,
+            #292929,
+            #111111
+        );
+
+    border: 1px solid rgba(255,255,255,0.25);
+
+    box-shadow:
+        0 10px 30px rgba(0,0,0,0.35);
+
+    overflow: hidden;
+
+    transition: 0.25s;
+}
+
+
+/* لمعان الزر */
+.button::before {
+    content: "";
+
+    position: absolute;
+
+    top: 0;
+    left: -120%;
+
+    width: 70%;
+    height: 100%;
+
+    background:
+        linear-gradient(
+            90deg,
+            transparent,
+            rgba(255,255,255,0.35),
+            transparent
+        );
+
+    transform: skewX(-20deg);
+
+    animation: shine 3s infinite;
+}
+
+
+.button:hover {
+    transform: translateY(-5px) scale(1.02);
+
+    box-shadow:
+        0 15px 40px rgba(120,50,255,0.45);
+}
+
+
+.x {
+    font-size: 25px;
+}
+
+
+/* الحالة */
+.badge {
+    display: inline-block;
+
+    margin-top: 20px;
+
+    padding: 7px 14px;
+
+    border-radius: 50px;
+
+    font-size: 12px;
+
+    color: #dddddd;
+
+    background: rgba(255,255,255,0.07);
+
+    border: 1px solid rgba(255,255,255,0.12);
+}
+
+
+.dot {
+    display: inline-block;
+
+    width: 7px;
+    height: 7px;
+
+    margin-left: 6px;
+
+    border-radius: 50%;
+
+    background: #43ff8b;
+
+    box-shadow: 0 0 10px #43ff8b;
+
+    animation: blink 1.5s infinite;
+}
+
+
+/* الحركات */
+
+@keyframes appear {
+    from {
+        opacity: 0;
+        transform: translateY(40px) scale(0.92);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+   
